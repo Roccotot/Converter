@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGRAFILM - Convertitore Macro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); padding: 0; text-align: center; }
+        .header img { width: 100%; height: auto; display: block; }
+        .header h1 { color: white; font-size: 2.5em; margin: 20px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .header p { color: #ecf0f1; font-size: 1.1em; margin-bottom: 20px; }
+        .content { padding: 40px; }
+        .converter-section { margin-bottom: 30px; }
+        .converter-section h2 { color: #2c3e50; margin-bottom: 15px; font-size: 1.5em; border-left: 4px solid #667eea; padding-left: 15px; }
+        input[type="file"] { width: 100%; padding: 12px; border: 2px dashed #667eea; border-radius: 8px; cursor: pointer; background: #f8f9fa; }
+        button { padding: 15px 30px; font-size: 1.1em; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 5px; }
+        .btn-analyze { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; }
+        .btn-convert { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-download { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+        .btn-small { padding: 8px 16px; font-size: 0.9em; background: #6c757d; color: white; }
+        button:disabled { background: #ccc !important; cursor: not-allowed; }
+        .selection-section { display: none; margin: 30px 0; }
+        .macro-list { max-height: 500px; overflow-y: auto; border: 2px solid #dee2e6; border-radius: 8px; padding: 15px; background: #ffffff; }
+        .macro-item { display: flex; padding: 12px; margin-bottom: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; }
+        .macro-item.selected { background: #e3f2fd; border: 2px solid #2196f3; }
+        .macro-checkbox { margin-right: 12px; width: 20px; height: 20px; }
+        .macro-name { font-weight: 600; color: #2c3e50; font-size: 1.1em; }
+        .command-count { background: #667eea; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.85em; margin-left: 10px; }
+        .output-box { background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; padding: 20px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.9em; white-space: pre-wrap; }
+        .status-success { background: #d4edda; color: #155724; padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .status-error { background: #f8d7da; color: #721c24; padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .search-box input { width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 1em; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="top.png" alt="Header" onerror="this.style.display='none'">
+            <h1>🎬Convertitore Macro</h1>
+            <p>Doremi ⇄ Alkemy</p>
+        </div>
+        <div class="content">
+            <div class="converter-section">
+                <h2>1. Carica file</h2>
+                <input type="file" id="fileInput" accept=".xml" />
+                <button class="btn-analyze" id="analyzeBtn" onclick="analyzeFile()" disabled>🔍 Analizza File</button>
+            </div>
+            <div id="statusMessage"></div>
+            <div class="selection-section" id="selectionSection">
+                <h2>2. Seleziona macro</h2>
+                <div>
+                    <strong id="selectedCount">0</strong> macro selezionate su <strong id="totalCount">0</strong>
+                    <button class="btn-small" onclick="selectAll()">Seleziona Tutto</button>
+                    <button class="btn-small" onclick="deselectAll()">Deseleziona Tutto</button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="🔍 Cerca (es. Volume 4.5)..." onkeyup="filterMacros()">
+                </div>
+                <div class="macro-list" id="macroList"></div>
+                <button class="btn-convert" id="convertBtn" onclick="convertSelected()" disabled>⚡ Converti</button>
+            </div>
+            <div id="outputSection" style="display:none">
+                <h2>3. Risultato</h2>
+                <div id="outputBox" class="output-box"></div>
+                <button class="btn-download" onclick="downloadFile()">📥 Scarica</button>
+            </div>
+        </div>
+    </div>
+    <script>
+let convertedContent = '', fileName = '', fileType = '', allMacros = [], parsedXmlDoc = null;
+document.getElementById('fileInput').addEventListener('change', function() {
+    document.getElementById('analyzeBtn').disabled = !this.files || !this.files.length;
+    document.getElementById('selectionSection').style.display = 'none';
+    document.getElementById('outputSection').style.display = 'none';
+    allMacros = []; fileType = '';
+});
+function showStatus(message, isError = false) {
+    const statusDiv = document.getElementById('statusMessage');
+    statusDiv.className = isError ? 'status-error' : 'status-success';
+    statusDiv.textContent = message;
+    setTimeout(() => statusDiv.textContent = '', 5000);
+}
+function analyzeFile() {
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files || !fileInput.files.length) { showStatus('❌ Seleziona prima un file!', true); return; }
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parser = new DOMParser();
+            parsedXmlDoc = parser.parseFromString(e.target.result, 'text/xml');
+            if (parsedXmlDoc.querySelector('parsererror')) throw new Error('File XML non valido');
+            const doremiMacros = parsedXmlDoc.querySelectorAll('AutomationCueMacro');
+            const alkemyEvents = Array.from(parsedXmlDoc.querySelectorAll('Event')).filter(event => event.getAttribute('Source') === 'USER_CUE');
+            if (doremiMacros.length > 0) {
+                fileType = 'doremi';
+                allMacros = extractDoremiMacros(doremiMacros);
+                showStatus(`✅ Doremi: ${allMacros.length} macro trovate`);
+            } else if (alkemyEvents.length > 0) {
+                fileType = 'alkemy';
+                allMacros = extractAlkemyMacros(alkemyEvents);
+                showStatus(`✅ Alkemy: ${allMacros.length} USER_CUE trovate`);
+            } else throw new Error('Nessuna macro trovata');
+            displayMacros();
+            document.getElementById('selectionSection').style.display = 'block';
+        } catch (error) {
+            showStatus(`❌ Errore: ${error.message}`, true);
+        }
+    };
+    reader.readAsText(file);
+}
+function extractDoremiMacros(macros) {
+    const result = [];
+    macros.forEach((macro, index) => {
+        const name = macro.querySelector('n')?.textContent || `Macro_${index + 1}`;
+        const commands = macro.querySelectorAll('Command');
+        const commandDetails = [];
+        commands.forEach(cmd => {
+            let detail = cmd.querySelector('Type')?.textContent || '';
+            const value = cmd.querySelector('Value')?.textContent;
+            if (value) detail += ` = ${value}`;
+            commandDetails.push(detail);
+        });
+        result.push({index, name, commandCount: commands.length, commandDetails, element: macro});
+    });
+    return result;
+}
+function extractAlkemyMacros(events) {
+    const result = [];
+    events.forEach((event, index) => {
+        const name = event.getAttribute('Name') || `Cue_${index + 1}`;
+        const actions = event.querySelectorAll('Action');
+        const actionDetails = [];
+        actions.forEach(action => actionDetails.push(`${action.getAttribute('Target')}: ${action.getAttribute('Name')}`));
+        result.push({index, name, commandCount: actions.length, commandDetails: actionDetails, element: event});
+    });
+    return result;
+}
+function displayMacros() {
+    const macroList = document.getElementById('macroList');
+    macroList.innerHTML = '';
+    document.getElementById('totalCount').textContent = allMacros.length;
+    document.getElementById('selectedCount').textContent = '0';
+    allMacros.forEach((macro, index) => {
+        const item = document.createElement('div');
+        item.className = 'macro-item';
+        item.dataset.index = index;
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'macro-checkbox';
+        checkbox.id = `macro-${index}`;
+        checkbox.onchange = updateSelection;
+        const nameDiv = document.createElement('div');
+        nameDiv.innerHTML = `<span class="macro-name">${macro.name}</span><span class="command-count">${macro.commandCount} comandi</span><br><small style="color:#666">${macro.commandDetails.join(' | ')}</small>`;
+        item.appendChild(checkbox);
+        item.appendChild(nameDiv);
+        item.onclick = function(e) { if (e.target !== checkbox) { checkbox.checked = !checkbox.checked; updateSelection(); }};
+        macroList.appendChild(item);
+    });
+}
+function updateSelection() {
+    let selectedCount = 0;
+    document.querySelectorAll('.macro-checkbox').forEach((checkbox) => {
+        const item = checkbox.closest('.macro-item');
+        if (checkbox.checked) { selectedCount++; item.classList.add('selected'); } else { item.classList.remove('selected'); }
+    });
+    document.getElementById('selectedCount').textContent = selectedCount;
+    document.getElementById('convertBtn').disabled = selectedCount === 0;
+}
+function selectAll() { document.querySelectorAll('.macro-checkbox').forEach(cb => { if (cb.closest('.macro-item').style.display !== 'none') cb.checked = true; }); updateSelection(); }
+function deselectAll() { document.querySelectorAll('.macro-checkbox').forEach(cb => cb.checked = false); updateSelection(); }
+function filterMacros() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.macro-item').forEach(item => {
+        const name = item.textContent.toLowerCase();
+        item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+    });
+}
+function convertSelected() {
+    const selectedIndices = Array.from(document.querySelectorAll('.macro-checkbox:checked')).map(cb => parseInt(cb.closest('.macro-item').dataset.index));
+    if (!selectedIndices.length) { showStatus('❌ Seleziona almeno una macro!', true); return; }
+    const selectedMacros = selectedIndices.map(i => allMacros[i]);
+    try {
+        if (fileType === 'doremi') {
+            convertedContent = convertDoremiToAlkemy(selectedMacros);
+            fileName = 'ICMPSettings_converted.xml';
+        } else {
+            convertedContent = convertAlkemyToDoremi(selectedMacros);
+            fileName = 'macros_converted.xml';
+        }
+        document.getElementById('outputBox').textContent = convertedContent;
+        document.getElementById('outputSection').style.display = 'block';
+        showStatus(`✅ Conversione completata! ${selectedIndices.length} macro`);
+        document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+        showStatus(`❌ Errore: ${error.message}`, true);
+    }
+}
+function escapeXml(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+function convertDoremiToAlkemy(selectedMacros) {
+    let xml = '<?xml version="1.0"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
+    selectedMacros.forEach(macro => {
+        const element = macro.element;
+        const name = element.querySelector('n')?.textContent || macro.name;
+        xml += `      <Event Source="USER_CUE" Name="${escapeXml(name)}">\n`;
+        element.querySelectorAll('Command').forEach(cmd => {
+            const type = cmd.querySelector('Type')?.textContent;
+            const value = cmd.querySelector('Value')?.textContent;
+            const device = cmd.querySelector('DeviceName')?.textContent;
+            const line = cmd.querySelector('Line')?.textContent;
+            const pulse = cmd.querySelector('PulseDelay')?.textContent;
+            const msg = cmd.querySelector('Message')?.textContent;
+            if (type === 'Play') xml += `        <Action Target="PLAYER" Name="Play" DelayInMilliseconds="0"/>\n`;
+            else if (type === 'Pause') xml += `        <Action Target="PLAYER" Name="Pause" DelayInMilliseconds="0"><Parameter Name="Duration in Minutes" Value="0"/></Action>\n`;
+            else if (type === 'Lamp') xml += `        <Action Target="PROJECTOR" Name="${value === 'On' ? 'Turn Lamp On' : 'Turn Lamp Off'}" DelayInMilliseconds="0"/>\n`;
+            else if (type === 'Dowser') xml += `        <Action Target="PROJECTOR" Name="${value === 'On' ? 'Close Dowser' : 'Open Dowser'}" DelayInMilliseconds="0"/>\n`;
+            else if (type === 'ProjectorMacro') xml += `        <Action Target="PROJECTOR" Name="Execute Macro" DelayInMilliseconds="0"><Parameter Value="${escapeXml(value||'')}"/></Action>\n`;
+            else if (type === 'GPO') xml += `        <Action Target="GPIO" Name="Pulse Up" DelayInMilliseconds="0"><Parameter Name="Output" Value="${line||'0'}"/><Parameter Name="Duration in Milliseconds" Value="${pulse||'1000'}"/></Action>\n`;
+            else if (type === 'DeviceRawSendMessage' && device === 'CP650') xml += `        <Action Target="CP650" Name="Send Text" DelayInMilliseconds="0"><Parameter Name="Text" Value="${escapeXml((msg||'').replace(/\\r\\n/g, '\\0D\\0A '))}"/></Action>\n`;
+        });
+        xml += `      </Event>\n`;
+    });
+    xml += '    </Events>\n  </Automation>\n</SmsSettings>';
+    return xml;
+}
+function convertAlkemyToDoremi(selectedMacros) {
+    let xml = '<?xml version="1.0"?>\n<AutomationCueMacroList>\n';
+    xml += '  <IssueDate>' + new Date().toISOString() + '</IssueDate>\n  <Issuer>Doremi Cinema LLC</Issuer>\n  <Creator>Convertitore</Creator>\n  <AnnotationText>Convertito da formato Alkemy</AnnotationText>\n';
+    selectedMacros.forEach(macro => {
+        const event = macro.element;
+        const name = event.getAttribute('Name') || macro.name;
+        xml += `  <AutomationCueMacro>\n    <n>${escapeXml(name)}</n>\n    <Id>urn:uuid:${generateUUID()}</Id>\n    <CommandList>\n`;
+        event.querySelectorAll('Action').forEach(action => {
+            const target = action.getAttribute('Target');
+            const actionName = action.getAttribute('Name');
+            const params = action.querySelectorAll('Parameter');
+            if (target === 'PLAYER' && actionName === 'Play') xml += '      <Command>\n        <Type>Play</Type>\n      </Command>\n';
+            else if (target === 'PLAYER' && actionName === 'Pause') xml += '      <Command>\n        <Type>Pause</Type>\n      </Command>\n';
+            else if (target === 'PROJECTOR' && actionName === 'Turn Lamp On') xml += '      <Command>\n        <Type>Lamp</Type>\n        <Value>On</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
+            else if (target === 'PROJECTOR' && actionName === 'Turn Lamp Off') xml += '      <Command>\n        <Type>Lamp</Type>\n        <Value>Off</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
+            else if (target === 'PROJECTOR' && actionName === 'Close Dowser') xml += '      <Command>\n        <Type>Dowser</Type>\n        <Value>On</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
+            else if (target === 'PROJECTOR' && actionName === 'Open Dowser') xml += '      <Command>\n        <Type>Dowser</Type>\n        <Value>Off</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
+            else if (target === 'PROJECTOR' && actionName === 'Execute Macro') {
+                const macroVal = params[0]?.getAttribute('Value') || '';
+                xml += `      <Command>\n        <Type>ProjectorMacro</Type>\n        <Value>${escapeXml(macroVal)}</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n`;
+            }
+            else if (target === 'GPIO' && actionName === 'Pulse Up') {
+                let line='0', dur='1000';
+                params.forEach(p => { if(p.getAttribute('Name')==='Output') line=p.getAttribute('Value'); if(p.getAttribute('Name')==='Duration in Milliseconds') dur=p.getAttribute('Value'); });
+                xml += `      <Command>\n        <Type>GPO</Type>\n        <Line>${line}</Line>\n        <Value>2</Value>\n        <PulseDelay>${dur}</PulseDelay>\n      </Command>\n`;
+            }
+            else if (target === 'CP650' && actionName === 'Send Text') {
+                let txt='';
+                params.forEach(p => { if(p.getAttribute('Name')==='Text') txt=p.getAttribute('Value'); });
+                txt = txt.replace(/\\0D\\0A/g, '\\r\\n').trim();
+                xml += `      <Command>\n        <Type>DeviceRawSendMessage</Type>\n        <DeviceName>CP650</DeviceName>\n        <MessageType>text</MessageType>\n        <Message>${escapeXml(txt)}</Message>\n      </Command>\n`;
+            }
+        });
+        xml += '    </CommandList>\n  </AutomationCueMacro>\n';
+    });
+    xml += '</AutomationCueMacroList>';
+    return xml;
+}
+function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); }); }
+function downloadFile() {
+    if (!convertedContent) { showStatus('❌ Nessun contenuto!', true); return; }
+    const blob = new Blob([convertedContent], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus('✅ File scaricato!');
+}
+    </script>
+</body>
+</html>
