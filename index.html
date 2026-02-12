@@ -117,22 +117,21 @@ function analyzeFile() {
 function extractDoremiMacros(macros) {
     const result = [];
     macros.forEach((macro, index) => {
-        // Cerca il tag <n> tra i figli diretti
-        let name = null;
-        for (let i = 0; i < macro.children.length; i++) {
-            if (macro.children[i].tagName === 'n') {
-                name = macro.children[i].textContent;
-                break;
-            }
-        }
-        if (!name) name = `Macro_${index + 1}`;
+        // Usa getElementsByTagName per trovare il tag <n>
+        const nTags = macro.getElementsByTagName('n');
+        let name = nTags.length > 0 ? nTags[0].textContent : `Macro_${index + 1}`;
         
         const commands = macro.querySelectorAll('Command');
         const commandDetails = [];
         commands.forEach(cmd => {
-            const type = cmd.querySelector('Type')?.textContent || '';
-            const value = cmd.querySelector('Value')?.textContent;
-            const device = cmd.querySelector('DeviceName')?.textContent;
+            const typeTags = cmd.getElementsByTagName('Type');
+            const valueTags = cmd.getElementsByTagName('Value');
+            const deviceTags = cmd.getElementsByTagName('DeviceName');
+            
+            const type = typeTags.length > 0 ? typeTags[0].textContent : '';
+            const value = valueTags.length > 0 ? valueTags[0].textContent : null;
+            const device = deviceTags.length > 0 ? deviceTags[0].textContent : null;
+            
             let detail = type;
             if (value) detail += ` = ${value}`;
             if (device) detail += ` (${device})`;
@@ -235,24 +234,25 @@ function convertDoremiToAlkemy(selectedMacros) {
     let xml = '<?xml version="1.0"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
     selectedMacros.forEach(macro => {
         const element = macro.element;
-        // Trova il tag <n>
-        let name = null;
-        for (let i = 0; i < element.children.length; i++) {
-            if (element.children[i].tagName === 'n') {
-                name = element.children[i].textContent;
-                break;
-            }
-        }
-        if (!name) name = macro.name;
+        const nTags = element.getElementsByTagName('n');
+        const name = nTags.length > 0 ? nTags[0].textContent : macro.name;
         
         xml += `      <Event Source="USER_CUE" Name="${escapeXml(name)}">\n`;
         element.querySelectorAll('Command').forEach(cmd => {
-            const type = cmd.querySelector('Type')?.textContent;
-            const value = cmd.querySelector('Value')?.textContent;
-            const device = cmd.querySelector('DeviceName')?.textContent;
-            const line = cmd.querySelector('Line')?.textContent;
-            const pulse = cmd.querySelector('PulseDelay')?.textContent;
-            const msg = cmd.querySelector('Message')?.textContent;
+            const typeTags = cmd.getElementsByTagName('Type');
+            const valueTags = cmd.getElementsByTagName('Value');
+            const deviceTags = cmd.getElementsByTagName('DeviceName');
+            const lineTags = cmd.getElementsByTagName('Line');
+            const pulseTags = cmd.getElementsByTagName('PulseDelay');
+            const msgTags = cmd.getElementsByTagName('Message');
+            
+            const type = typeTags.length > 0 ? typeTags[0].textContent : null;
+            const value = valueTags.length > 0 ? valueTags[0].textContent : null;
+            const device = deviceTags.length > 0 ? deviceTags[0].textContent : null;
+            const line = lineTags.length > 0 ? lineTags[0].textContent : null;
+            const pulse = pulseTags.length > 0 ? pulseTags[0].textContent : null;
+            const msg = msgTags.length > 0 ? msgTags[0].textContent : null;
+            
             if (type === 'Play') xml += `        <Action Target="PLAYER" Name="Play" DelayInMilliseconds="0"/>\n`;
             else if (type === 'Pause') xml += `        <Action Target="PLAYER" Name="Pause" DelayInMilliseconds="0"><Parameter Name="Duration in Minutes" Value="0"/></Action>\n`;
             else if (type === 'Lamp') xml += `        <Action Target="PROJECTOR" Name="${value === 'On' ? 'Turn Lamp On' : 'Turn Lamp Off'}" DelayInMilliseconds="0"/>\n`;
