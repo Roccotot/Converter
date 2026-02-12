@@ -109,6 +109,7 @@ function analyzeFile() {
             document.getElementById('selectionSection').style.display = 'block';
         } catch (error) {
             showStatus(`❌ Errore: ${error.message}`, true);
+            console.error('Errore dettagliato:', error);
         }
     };
     reader.readAsText(file);
@@ -116,7 +117,16 @@ function analyzeFile() {
 function extractDoremiMacros(macros) {
     const result = [];
     macros.forEach((macro, index) => {
-        const name = macro.querySelector('n')?.textContent || `Macro_${index + 1}`;
+        // Cerca il tag <n> tra i figli diretti
+        let name = null;
+        for (let i = 0; i < macro.children.length; i++) {
+            if (macro.children[i].tagName === 'n') {
+                name = macro.children[i].textContent;
+                break;
+            }
+        }
+        if (!name) name = `Macro_${index + 1}`;
+        
         const commands = macro.querySelectorAll('Command');
         const commandDetails = [];
         commands.forEach(cmd => {
@@ -225,7 +235,16 @@ function convertDoremiToAlkemy(selectedMacros) {
     let xml = '<?xml version="1.0"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
     selectedMacros.forEach(macro => {
         const element = macro.element;
-        const name = element.querySelector('n')?.textContent || macro.name;
+        // Trova il tag <n>
+        let name = null;
+        for (let i = 0; i < element.children.length; i++) {
+            if (element.children[i].tagName === 'n') {
+                name = element.children[i].textContent;
+                break;
+            }
+        }
+        if (!name) name = macro.name;
+        
         xml += `      <Event Source="USER_CUE" Name="${escapeXml(name)}">\n`;
         element.querySelectorAll('Command').forEach(cmd => {
             const type = cmd.querySelector('Type')?.textContent;
