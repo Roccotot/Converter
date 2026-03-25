@@ -45,6 +45,9 @@
         .status-error { background: #f8d7da; color: #721c24; padding: 15px; margin: 15px 0; border-radius: 8px; }
         .search-box input { width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 1em; margin-bottom: 15px; }
         .output-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 10px; }
+        .warnings-box { background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin-top: 15px; font-size: 0.9em; }
+        .warnings-box h4 { color: #856404; margin-bottom: 8px; }
+        .warnings-box ul { margin-left: 20px; color: #856404; }
     </style>
 </head>
 <body>
@@ -85,6 +88,10 @@
                 <div class="output-actions">
                     <button class="btn-download" onclick="downloadFile()">📥 Scarica</button>
                     <button class="btn-copy" onclick="copyToClipboard()">📋 Copia</button>
+                </div>
+                <div id="warningsBox" style="display:none" class="warnings-box">
+                    <h4>⚠️ Avvisi di conversione</h4>
+                    <ul id="warningsList"></ul>
                 </div>
             </div>
         </div>
@@ -292,17 +299,30 @@ function convertSelected() {
     const selectedMacros = selectedIndices.map(i => allMacros[i]);
 
     try {
+        let result;
         if (fileType === 'doremi') {
-            convertedContent = convertDoremiToAlkemy(selectedMacros);
+            result = convertDoremiToAlkemy(selectedMacros);
             fileName = 'ICMPSettings_converted.xml';
         } else {
-            convertedContent = convertAlkemyToDoremi(selectedMacros);
+            result = convertAlkemyToDoremi(selectedMacros);
             fileName = 'macros_converted.xml';
         }
 
+        convertedContent = result.xml;
         document.getElementById('outputBox').textContent = convertedContent;
         document.getElementById('outputSection').style.display = 'block';
-        showStatus(`✅ Conversione completata! ${selectedIndices.length} macro`);
+
+        const warningsBox  = document.getElementById('warningsBox');
+        const warningsList = document.getElementById('warningsList');
+        if (result.warnings.length > 0) {
+            warningsList.innerHTML = result.warnings.map(w => `<li>${w}</li>`).join('');
+            warningsBox.style.display = 'block';
+            showStatus(`⚠️ Conversione con ${result.warnings.length} avviso/i — controlla la sezione gialla`, true);
+        } else {
+            warningsBox.style.display = 'none';
+            showStatus(`✅ Conversione completata! ${selectedIndices.length} macro`);
+        }
+
         document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
         showStatus(`❌ Errore: ${error.message}`, true);
@@ -316,6 +336,7 @@ function escapeXml(text) {
 }
 
 function convertDoremiToAlkemy(selectedMacros) {
+    const warnings = [];
     let xml = '<?xml version="1.0"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
 
     selectedMacros.forEach(macro => {
@@ -331,6 +352,8 @@ function convertDoremiToAlkemy(selectedMacros) {
 
             if (type === 'Play')
                 xml += `        <Action Target="PLAYER" Name="Play" DelayInMilliseconds="0"/>\n`;
+            else if (type === 'Stop')
+                xml += `        <Action Target="PLAYER" Name="Stop" DelayInMilliseconds="0"/>\n`;
             else if (type === 'Pause')
                 xml += `        <Action Target="PLAYER" Name="Pause" DelayInMilliseconds="0"><Parameter Name="Duration in Minutes" Value="0"/></Action>\n`;
             else if (type === 'Lamp')
@@ -341,18 +364,23 @@ function convertDoremiToAlkemy(selectedMacros) {
                 xml += `        <Action Target="PROJECTOR" Name="Execute Macro" DelayInMilliseconds="0"><Parameter Value="${escapeXml(value||'')}"/></Action>\n`;
             else if (type === 'GPO')
                 xml += `        <Action Target="GPIO" Name="Pulse Up" DelayInMilliseconds="0"><Parameter Name="Output" Value="${line}"/><Parameter Name="Duration in Milliseconds" Value="${pulse}"/></Action>\n`;
-            else if (type === 'DeviceRawSendMessage' && device === 'CP650')
-                xml += `        <Action Target="CP650" Name="Send Text" DelayInMilliseconds="0"><Parameter Name="Text" Value="${escapeXml(msg.replace(/\\r\\n/g, '\\0D\\0A '))}"/></Action>\n`;
+            else if (type === 'DeviceRawSendMessage' && device)
+                xml += `        <Action Target="${escapeXml(device)}" Name="Send Text" DelayInMilliseconds="0"><Parameter Name="Text" Value="${escapeXml(msg.replace(/\\r\\n/g, '\\0D\\0A '))}"/></Action>\n`;
+            else if (type) {
+                xml += `        <!-- IGNORATO: tipo "${escapeXml(type)}"${device ? ` su ${escapeXml(device)}` : ''} -->\n`;
+                warnings.push(`[${macro.name}] Tipo non convertibile ignorato: "${type}"${device ? ` (dispositivo: ${device})` : ''}`);
+            }
         });
 
         xml += `      </Event>\n`;
     });
 
     xml += '    </Events>\n  </Automation>\n</SmsSettings>';
-    return xml;
+    return { xml, warnings };
 }
 
 function convertAlkemyToDoremi(selectedMacros) {
+    const warnings = [];
     let xml = '<?xml version="1.0"?>\n<AutomationCueMacroList>\n';
     xml += '  <IssueDate>' + new Date().toISOString() + '</IssueDate>\n';
     xml += '  <Issuer>Doremi Cinema LLC</Issuer>\n  <Creator>Convertitore</Creator>\n';
@@ -368,10 +396,21 @@ function convertAlkemyToDoremi(selectedMacros) {
             const actionName = action.getAttribute('Name');
             const params     = action.querySelectorAll('Parameter');
 
-            if (target === 'PLAYER' && actionName === 'Play')
+            if (target === 'PLAYER' && (actionName === 'Play' || actionName === 'Start'))
                 xml += '      <Command>\n        <Type>Play</Type>\n      </Command>\n';
-            else if (target === 'PLAYER' && actionName === 'Pause')
+            else if (target === 'PLAYER' && actionName === 'Stop')
+                xml += '      <Command>\n        <Type>Stop</Type>\n      </Command>\n';
+            else if (target === 'PLAYER' && actionName === 'Pause') {
+                const durParam = Array.from(params).find(p => p.getAttribute('Name') === 'Duration in Minutes');
+                const dur = durParam ? parseFloat(durParam.getAttribute('Value') || '0') : 0;
                 xml += '      <Command>\n        <Type>Pause</Type>\n      </Command>\n';
+                if (dur > 0)
+                    warnings.push(`[${macro.name}] Pausa temporizzata (${dur} min con ripresa automatica) → convertita in Pausa semplice (Doremi non supporta auto-ripresa)`);
+            }
+            else if (target === 'PLAYER' && actionName === 'Resume') {
+                xml += `      <!-- IGNORATO: PLAYER/Resume non ha equivalente Doremi -->\n`;
+                warnings.push(`[${macro.name}] "Resume" (PLAYER) non ha un equivalente in Doremi — azione ignorata`);
+            }
             else if (target === 'PROJECTOR' && actionName === 'Turn Lamp On')
                 xml += '      <Command>\n        <Type>Lamp</Type>\n        <Value>On</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
             else if (target === 'PROJECTOR' && actionName === 'Turn Lamp Off')
@@ -392,11 +431,16 @@ function convertAlkemyToDoremi(selectedMacros) {
                 });
                 xml += `      <Command>\n        <Type>GPO</Type>\n        <Line>${line}</Line>\n        <Value>2</Value>\n        <PulseDelay>${dur}</PulseDelay>\n      </Command>\n`;
             }
-            else if (target === 'CP650' && actionName === 'Send Text') {
+            else if (actionName === 'Send Text') {
+                // Gestione generica dispositivi TCP (CP650, CP750, CP850, QSC, ecc.)
                 let txt = '';
                 params.forEach(p => { if (p.getAttribute('Name') === 'Text') txt = p.getAttribute('Value'); });
                 txt = txt.replace(/\\0D\\0A/g, '\\r\\n').trim();
-                xml += `      <Command>\n        <Type>DeviceRawSendMessage</Type>\n        <DeviceName>CP650</DeviceName>\n        <MessageType>text</MessageType>\n        <Message>${escapeXml(txt)}</Message>\n      </Command>\n`;
+                xml += `      <Command>\n        <Type>DeviceRawSendMessage</Type>\n        <DeviceName>${escapeXml(target)}</DeviceName>\n        <MessageType>text</MessageType>\n        <Message>${escapeXml(txt)}</Message>\n      </Command>\n`;
+            }
+            else if (target && actionName) {
+                xml += `      <!-- IGNORATO: ${escapeXml(target)}/${escapeXml(actionName)} -->\n`;
+                warnings.push(`[${macro.name}] Azione non convertibile ignorata: "${target}/${actionName}"`);
             }
         });
 
@@ -404,7 +448,7 @@ function convertAlkemyToDoremi(selectedMacros) {
     });
 
     xml += '</AutomationCueMacroList>';
-    return xml;
+    return { xml, warnings };
 }
 
 // ── Download & copia ─────────────────────────────────────────
