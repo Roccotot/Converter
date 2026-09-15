@@ -316,6 +316,98 @@
         .warnings-box ul { margin-left: 18px; }
         .warnings-box li { color: #C89050; font-size: 0.84em; margin-bottom: 4px; }
 
+
+        /* ── Badge di convertibilità ── */
+        .badge {
+            padding: 1px 8px;
+            border-radius: 2px;
+            font-size: 0.72em;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .badge-ok   { background: rgba(31,163,99,0.16);  color: #4BD393;        border: 1px solid rgba(31,163,99,0.45); }
+        .badge-warn { background: rgba(232,124,16,0.14); color: #E8A050;        border: 1px solid rgba(232,124,16,0.45); }
+
+        /* ── Indicatore direzione di conversione ── */
+        .direction {
+            margin-left: auto;
+            font-size: 0.78em;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--barco-blue2);
+            border: 1px solid var(--border-bright);
+            padding: 3px 10px;
+            border-radius: 2px;
+        }
+
+        /* ── Riepilogo conversione ── */
+        .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+        .summary-item {
+            background: var(--bg-item);
+            border: 1px solid var(--border);
+            border-left: 2px solid var(--barco-blue);
+            padding: 8px 16px;
+            min-width: 120px;
+        }
+        .summary-value { font-size: 1.2em; font-weight: 700; color: var(--barco-blue2); }
+        .summary-label {
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ── Tabella di equivalenza ── */
+        .info-panel summary {
+            cursor: pointer;
+            padding: 12px 18px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9em;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            list-style: none;
+        }
+        .info-panel summary::-webkit-details-marker { display: none; }
+        .info-panel summary::before { content: '\25B8 '; color: var(--barco-blue2); }
+        .info-panel[open] summary::before { content: '\25BE '; }
+        .table-wrap { overflow-x: auto; }
+        .map-table { width: 100%; border-collapse: collapse; font-size: 0.82em; min-width: 640px; }
+        .map-table th, .map-table td {
+            border: 1px solid var(--border);
+            padding: 7px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .map-table th {
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.92em;
+            font-weight: 600;
+        }
+        .map-table td { color: var(--text-secondary); }
+        .map-table td code { color: #7EC8E3; font-family: 'Consolas', monospace; }
+        .map-table td.map-na { color: var(--barco-orange); font-style: italic; }
+        .panel-note { font-size: 0.82em; color: var(--text-muted); margin-top: 12px; line-height: 1.5; }
+
+        /* ── Mobile ── */
+        @media (max-width: 700px) {
+            .page { padding: 18px 14px; }
+            .topbar { padding: 0 14px; gap: 10px; }
+            .topbar-title { display: none; }
+            .panel-header { flex-wrap: wrap; }
+            .direction { margin-left: 0; }
+            .output-actions button { flex: 1 1 100%; margin: 4px 0; }
+            .macro-details { word-break: break-word; }
+        }
+
         /* ── Divider ── */
         .section-divider {
             height: 1px;
@@ -341,7 +433,7 @@
 
     <div class="page">
 
-        <div id="statusMessage"></div>
+        <div id="statusMessage" role="status" aria-live="polite"></div>
 
         <!-- Step 1: Load file -->
         <div class="panel">
@@ -350,7 +442,7 @@
                 <div class="panel-title">Load Automation File</div>
             </div>
             <div class="panel-body">
-                <div class="drop-zone" id="dropZone">
+                <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Carica il file XML di automazione">
                     <div class="drop-zone-icon">&#128450;</div>
                     <p>Drag &amp; drop the XML file here, or</p>
                     <label for="fileInput">browse from computer</label>
@@ -358,7 +450,7 @@
                     <div class="file-name" id="fileNameDisplay"></div>
                 </div>
                 <div style="margin-top:12px">
-                    <button class="btn-analyze" id="analyzeBtn" onclick="analyzeFile()" disabled>&#9654; Analyze File</button>
+                    <button type="button" class="btn-analyze" id="analyzeBtn" disabled>&#9654; Analyze File</button>
                 </div>
             </div>
         </div>
@@ -368,20 +460,21 @@
             <div class="panel-header">
                 <div class="step-num">2</div>
                 <div class="panel-title">Select Automation Cues</div>
+                <div class="direction" id="convDirection"></div>
             </div>
             <div class="panel-body">
                 <div class="toolbar">
                     <span class="toolbar-count"><strong id="selectedCount">0</strong> selected &nbsp;/&nbsp; <strong id="totalCount">0</strong> total</span>
-                    <button class="btn-small" onclick="selectAll()">Select All</button>
-                    <button class="btn-small" onclick="deselectAll()">Deselect All</button>
+                    <button type="button" class="btn-small" id="selectAllBtn">Select All</button>
+                    <button type="button" class="btn-small" id="deselectAllBtn">Deselect All</button>
                 </div>
                 <div class="search-wrap">
                     <span class="search-icon">&#128269;</span>
-                    <input type="text" id="searchInput" placeholder="Search cue name..." onkeyup="filterMacros()">
+                    <input type="text" id="searchInput" placeholder="Search cue name or command..." autocomplete="off">
                 </div>
                 <div class="macro-list" id="macroList"></div>
                 <div style="margin-top:14px">
-                    <button class="btn-convert" id="convertBtn" onclick="convertSelected()" disabled>&#9889; Convert Selected</button>
+                    <button type="button" class="btn-convert" id="convertBtn" disabled>&#9889; Convert Selected</button>
                 </div>
             </div>
         </div>
@@ -393,10 +486,11 @@
                 <div class="panel-title">Conversion Output</div>
             </div>
             <div class="panel-body">
+                <div class="summary" id="summaryBox"></div>
                 <div id="outputBox" class="output-box"></div>
                 <div class="output-actions">
-                    <button class="btn-download" onclick="downloadFile()">&#11015; Download XML</button>
-                    <button class="btn-copy" onclick="copyToClipboard()">&#128203; Copy to Clipboard</button>
+                    <button type="button" class="btn-download" id="downloadBtn">&#11015; Download XML</button>
+                    <button type="button" class="btn-copy" id="copyBtn">&#128203; Copy to Clipboard</button>
                 </div>
                 <div id="warningsBox" style="display:none" class="warnings-box">
                     <h4>&#9888; Conversion Warnings</h4>
@@ -405,381 +499,810 @@
             </div>
         </div>
 
+        <!-- Tabella di equivalenza fra i due server -->
+        <details class="panel info-panel" id="mappingPanel">
+            <summary>Equivalenze macro &mdash; Doremi &#8644; Barco Alchemy</summary>
+            <div class="panel-body">
+                <div class="table-wrap">
+                    <table class="map-table">
+                        <thead>
+                            <tr>
+                                <th>Funzione</th>
+                                <th>Doremi &mdash; &lt;Command&gt;</th>
+                                <th>Barco Alchemy &mdash; &lt;Action&gt;</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mapTableBody"></tbody>
+                    </table>
+                </div>
+                <p class="panel-note">
+                    Doremi descrive ogni passo come <code>&lt;Command&gt;</code> con un <code>&lt;Type&gt;</code> e sotto-nodi
+                    specifici del tipo; Barco Alchemy (ICMP) come <code>&lt;Action&gt;</code> con <code>Target</code>,
+                    <code>Name</code>, <code>DelayInMilliseconds</code> e <code>&lt;Parameter&gt;</code> nominati.
+                    Il ritardo per singola azione esiste solo su Alchemy: convertendo verso Doremi viene segnalato come avviso,
+                    perché i comandi Doremi vengono eseguiti in sequenza. Tutto ciò che non ha una corrispondenza
+                    resta nel file di destinazione come commento <code>&lt;!-- IGNORATO ... --&gt;</code> ed è elencato negli avvisi.
+                </p>
+            </div>
+        </details>
+
     </div>
     <script>
-let convertedContent = '', fileName = '', fileType = '', allMacros = [];
+(function () {
+'use strict';
 
-// ── Drag & drop ──────────────────────────────────────────────
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
+/* ================================================================
+   MODELLO INTERMEDIO (IR)
+   ----------------------------------------------------------------
+   I due server descrivono la stessa automazione con due grammatiche
+   diverse:
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
+   • Doremi / Dolby (DCP-2000, ShowVault, IMS1000/2000/3000)
+       <AutomationCueMacroList>
+         <AutomationCueMacro>
+           <Name>…</Name><Id>urn:uuid:…</Id>
+           <CommandList>
+             <Command><Type>…</Type>… sotto-nodi per tipo …</Command>
+           </CommandList>
+     I sotto-nodi dipendono dal <Type>: Value, DeviceName, Line,
+     PulseDelay, MessageType, Message, Duration.
+
+   • Barco Alchemy / ICMP ("Alkemy")
+       <SmsSettings><Automation><Events>
+         <Event Source="USER_CUE" Name="…">
+           <Action Target="…" Name="…" DelayInMilliseconds="…">
+             <Parameter Name="…" Value="…"/>
+     Target + Name sono obbligatori, i Parameter dipendono dall'azione.
+
+   Invece di due catene if/else speculari (facili da disallineare) il
+   convertitore porta entrambi i formati in un unico modello interno
+   ("kind" + parametri) e poi lo riserializza nel formato opposto.
+   Aggiungere un comando = una riga in ACTION_KINDS + due case.
+   ================================================================ */
+
+var ACTION_KINDS = {
+    play:      { label: 'Play',                   doremi: '<Type>Play</Type>',                          alkemy: 'PLAYER / Play' },
+    stop:      { label: 'Stop',                   doremi: '<Type>Stop</Type>',                          alkemy: 'PLAYER / Stop' },
+    pause:     { label: 'Pause',                  doremi: '<Type>Pause</Type>',                         alkemy: 'PLAYER / Pause',            note: 'La pausa temporizzata Barco (Duration in Minutes) non esiste su Doremi: resta una pausa semplice.' },
+    resume:    { label: 'Resume',                 doremi: null,                                         alkemy: 'PLAYER / Resume',           note: 'Nessun equivalente Doremi: la ripresa è manuale o via cue separata.' },
+    lamp:      { label: 'Lampada / Light',        doremi: '<Type>Lamp</Type> + Value On|Off',           alkemy: 'PROJECTOR / Turn Lamp On|Off' },
+    dowser:    { label: 'Dowser',                 doremi: '<Type>Dowser</Type> + Value On|Off',         alkemy: 'PROJECTOR / Close|Open Dowser', note: 'Value On = dowser chiuso (schermo nero), Value Off = dowser aperto.' },
+    projMacro: { label: 'Macro proiettore',       doremi: '<Type>ProjectorMacro</Type> + Value',        alkemy: 'PROJECTOR / Execute Macro' },
+    gpoPulse:  { label: 'GPO a impulso',          doremi: '<Type>GPO</Type> + Line/Value 2/PulseDelay', alkemy: 'GPIO / Pulse Up|Pulse Down', note: 'Doremi ha un solo impulso (modo Pulse): un "Pulse Down" Barco diventa Pulse con avviso di polarità.' },
+    gpoStatic: { label: 'GPO a livello fisso',    doremi: '<Type>GPO</Type> + Value 1|0 (On/Off)',      alkemy: null,                        note: 'Le azioni GPIO dell’ICMP sono solo a impulso: un GPO statico Doremi non è convertibile.' },
+    sendText:  { label: 'Messaggio a dispositivo', doremi: '<Type>DeviceRawSendMessage</Type> + DeviceName/MessageType/Message', alkemy: '<DEVICE> / Send Text (Parameter "Text")', note: 'Barco codifica i byte non stampabili come \\0D\\0A, Doremi come \\r\\n: la conversione traduce nei due sensi.' }
+};
+
+/* ── Stato applicazione ──────────────────────────────────────── */
+var state = {
+    fileType: '',          // 'doremi' | 'alkemy'
+    sourceName: '',        // nome del file caricato
+    macros: [],            // { index, name, actions[], details[], unsupported }
+    output: '',            // XML generato
+    outputName: ''
+};
+
+var $ = function (id) { return document.getElementById(id); };
+
+/* ================================================================
+   UTILITÀ
+   ================================================================ */
+
+function childText(el, tag) {
+    var node = el.querySelector(tag);
+    return node ? node.textContent.trim() : '';
+}
+
+function xmlEscape(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')   // non ammessi in XML 1.0
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function uuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();      // solo in contesti sicuri (https/localhost)
+    }
+    var b = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(b);
+    } else {
+        for (var i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    }
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    var h = Array.prototype.map.call(b, function (x) {
+        return ('0' + x.toString(16)).slice(-2);
+    }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+}
+
+function isOn(value) {
+    return /^(on|1|true|yes)$/i.test(String(value || '').trim());
+}
+
+/* ── Codifica testo dei messaggi seriali/TCP ──────────────────
+   Rappresentazione interna: stringa con i caratteri di controllo reali.
+   Doremi:  \r \n \t \\ (e \xHH per il resto)
+   Barco:   \0D \0A … cioè backslash + 2 cifre esadecimali, \\ = backslash
+   ------------------------------------------------------------ */
+function decodeDoremiText(raw, messageType) {
+    if (/hex|binary/i.test(messageType || '')) {
+        var pairs = String(raw || '').replace(/[^0-9A-Fa-f]/g, '');
+        var out = '';
+        for (var i = 0; i + 1 < pairs.length; i += 2) {
+            out += String.fromCharCode(parseInt(pairs.substr(i, 2), 16));
+        }
+        return out;
+    }
+    return String(raw || '').replace(/\\(r|n|t|0|\\|x[0-9A-Fa-f]{2})/g, function (m, esc) {
+        if (esc === 'r') return '\r';
+        if (esc === 'n') return '\n';
+        if (esc === 't') return '\t';
+        if (esc === '0') return '\x00';
+        if (esc === '\\') return '\\';
+        return String.fromCharCode(parseInt(esc.slice(1), 16));
+    });
+}
+
+function encodeDoremiText(text) {
+    return String(text || '').replace(/[\\\r\n\t\x00-\x1F\x7F]/g, function (ch) {
+        if (ch === '\\') return '\\\\';
+        if (ch === '\r') return '\\r';
+        if (ch === '\n') return '\\n';
+        if (ch === '\t') return '\\t';
+        return '\\x' + ('0' + ch.charCodeAt(0).toString(16).toUpperCase()).slice(-2);
+    });
+}
+
+function decodeBarcoText(raw) {
+    return String(raw || '').replace(/\\(\\|[0-9A-Fa-f]{2})/g, function (m, esc) {
+        if (esc === '\\') return '\\';
+        return String.fromCharCode(parseInt(esc, 16));
+    });
+}
+
+function encodeBarcoText(text) {
+    return String(text || '').replace(/[\s\S]/g, function (ch) {
+        if (ch === '\\') return '\\\\';
+        var code = ch.charCodeAt(0);
+        if (code >= 0x20 && code <= 0x7E) return ch;            // ASCII stampabile
+        if (code <= 0xFF) return '\\' + ('0' + code.toString(16).toUpperCase()).slice(-2);
+        // fuori da Latin-1: codifica UTF-8 byte per byte
+        return encodeURIComponent(ch).replace(/%/g, '\\');
+    });
+}
+
+/* ================================================================
+   PARSING  →  IR
+   ================================================================ */
+
+function parseDoremiCommand(cmd) {
+    var type   = childText(cmd, 'Type');
+    var value  = childText(cmd, 'Value');
+    var device = childText(cmd, 'DeviceName');
+
+    switch (type) {
+        case 'Play':   return { kind: 'play' };
+        case 'Stop':   return { kind: 'stop' };
+        case 'Pause':  return { kind: 'pause', durationMin: parseFloat(childText(cmd, 'Duration')) || 0 };
+        case 'Lamp':   return { kind: 'lamp',   on: isOn(value), device: device };
+        case 'Dowser': return { kind: 'dowser', closed: isOn(value), device: device };
+        case 'ProjectorMacro':
+            return { kind: 'projMacro', macro: value, device: device };
+        case 'GPO': {
+            var line  = childText(cmd, 'Line') || '0';
+            var pulse = childText(cmd, 'PulseDelay') || '1000';
+            if (value === '2' || /pulse/i.test(value)) {
+                return { kind: 'gpoPulse', line: line, pulseMs: pulse, down: false };
+            }
+            return { kind: 'gpoStatic', line: line, level: isOn(value) ? 'On' : 'Off' };
+        }
+        case 'DeviceRawSendMessage': {
+            var msgType = childText(cmd, 'MessageType') || 'text';
+            var msgNode = cmd.querySelector('Message');
+            var raw     = msgNode ? msgNode.textContent : '';
+            return { kind: 'sendText', device: device, text: decodeDoremiText(raw, msgType) };
+        }
+        default:
+            return { kind: 'unknown', label: type || '(senza Type)', device: device };
+    }
+}
+
+function parseAlkemyAction(action) {
+    var target = (action.getAttribute('Target') || '').trim();
+    var name   = (action.getAttribute('Name') || '').trim();
+    var delay  = parseInt(action.getAttribute('DelayInMilliseconds') || '0', 10) || 0;
+    var params = Array.prototype.slice.call(action.querySelectorAll('Parameter'));
+
+    function param(pname) {
+        for (var i = 0; i < params.length; i++) {
+            if ((params[i].getAttribute('Name') || '') === pname) return params[i].getAttribute('Value');
+        }
+        return null;
+    }
+
+    var ir = { kind: 'unknown', label: (target || '?') + '/' + (name || '?'), delayMs: delay };
+
+    if (target === 'PLAYER') {
+        if (name === 'Play' || name === 'Start')  ir = { kind: 'play' };
+        else if (name === 'Stop')                 ir = { kind: 'stop' };
+        else if (name === 'Resume')               ir = { kind: 'resume' };
+        else if (name === 'Pause')                ir = { kind: 'pause', durationMin: parseFloat(param('Duration in Minutes')) || 0 };
+    } else if (target === 'PROJECTOR') {
+        if (name === 'Turn Lamp On')       ir = { kind: 'lamp', on: true };
+        else if (name === 'Turn Lamp Off') ir = { kind: 'lamp', on: false };
+        else if (name === 'Close Dowser')  ir = { kind: 'dowser', closed: true };
+        else if (name === 'Open Dowser')   ir = { kind: 'dowser', closed: false };
+        else if (name === 'Execute Macro') {
+            var macro = param('Macro');
+            if (macro === null) {
+                for (var i = 0; i < params.length; i++) {
+                    if (params[i].hasAttribute('Value')) { macro = params[i].getAttribute('Value'); break; }
+                }
+            }
+            ir = { kind: 'projMacro', macro: macro || '' };
+        }
+    } else if (target === 'GPIO') {
+        if (name === 'Pulse Up' || name === 'Pulse Down') {
+            ir = {
+                kind: 'gpoPulse',
+                line: param('Output') || '0',
+                pulseMs: param('Duration in Milliseconds') || '1000',
+                down: name === 'Pulse Down'
+            };
+        }
+    }
+
+    if (ir.kind === 'unknown' && name === 'Send Text') {
+        ir = { kind: 'sendText', device: target, text: decodeBarcoText(param('Text') || '') };
+    }
+
+    if (ir.kind === 'unknown') ir.label = (target || '?') + '/' + (name || '?');
+    ir.delayMs = delay;
+    return ir;
+}
+
+/* ── Etichetta leggibile di un'azione (per la lista) ─────────── */
+function describe(ir) {
+    switch (ir.kind) {
+        case 'play':      return 'Play';
+        case 'stop':      return 'Stop';
+        case 'pause':     return 'Pause' + (ir.durationMin ? ' (' + ir.durationMin + ' min)' : '');
+        case 'resume':    return 'Resume';
+        case 'lamp':      return 'Lamp ' + (ir.on ? 'On' : 'Off');
+        case 'dowser':    return 'Dowser ' + (ir.closed ? 'Close' : 'Open');
+        case 'projMacro': return 'Projector macro: ' + (ir.macro || '?');
+        case 'gpoPulse':  return 'GPO ' + ir.line + ' pulse' + (ir.down ? ' down' : '') + ' ' + ir.pulseMs + 'ms';
+        case 'gpoStatic': return 'GPO ' + ir.line + ' = ' + ir.level;
+        case 'sendText':  return (ir.device || 'DEVICE') + ' ← "' + ir.text.replace(/[\x00-\x1F]/g, '·') + '"';
+        default:          return ir.label + (ir.device ? ' (' + ir.device + ')' : '');
+    }
+}
+
+/* Un'azione è convertibile verso il formato di destinazione? */
+function isSupported(ir, targetFormat) {
+    if (ir.kind === 'unknown') return false;
+    var kind = ACTION_KINDS[ir.kind];
+    if (!kind) return false;
+    return targetFormat === 'doremi' ? !!kind.doremi : !!kind.alkemy;
+}
+
+/* ================================================================
+   SERIALIZZAZIONE  IR →  XML
+   ================================================================ */
+
+function irToDoremi(ir, warn) {
+    var P = '      ';
+    var open = P + '<Command>\n';
+    var close = P + '</Command>\n';
+    var device = ir.device || 'DLP Projector';
+
+    if (ir.delayMs) {
+        warn('ritardo di ' + ir.delayMs + ' ms perso: Doremi esegue i comandi in sequenza senza delay per comando');
+    }
+
+    switch (ir.kind) {
+        case 'play':
+            return open + P + '  <Type>Play</Type>\n' + close;
+        case 'stop':
+            return open + P + '  <Type>Stop</Type>\n' + close;
+        case 'pause':
+            if (ir.durationMin > 0) {
+                warn('pausa temporizzata (' + ir.durationMin + ' min con ripresa automatica) convertita in pausa semplice: Doremi non supporta l’auto-ripresa');
+            }
+            return open + P + '  <Type>Pause</Type>\n' + close;
+        case 'lamp':
+            return open + P + '  <Type>Lamp</Type>\n' + P + '  <Value>' + (ir.on ? 'On' : 'Off') + '</Value>\n' +
+                   P + '  <DeviceName>' + xmlEscape(device) + '</DeviceName>\n' + close;
+        case 'dowser':
+            return open + P + '  <Type>Dowser</Type>\n' + P + '  <Value>' + (ir.closed ? 'On' : 'Off') + '</Value>\n' +
+                   P + '  <DeviceName>' + xmlEscape(device) + '</DeviceName>\n' + close;
+        case 'projMacro':
+            return open + P + '  <Type>ProjectorMacro</Type>\n' + P + '  <Value>' + xmlEscape(ir.macro) + '</Value>\n' +
+                   P + '  <DeviceName>' + xmlEscape(device) + '</DeviceName>\n' + close;
+        case 'gpoPulse':
+            if (ir.down) {
+                warn('"Pulse Down" sul GPO ' + ir.line + ' convertito in impulso Doremi standard: verificare la polarità del contatto');
+            }
+            return open + P + '  <Type>GPO</Type>\n' + P + '  <Line>' + xmlEscape(ir.line) + '</Line>\n' +
+                   P + '  <Value>2</Value>\n' + P + '  <PulseDelay>' + xmlEscape(ir.pulseMs) + '</PulseDelay>\n' + close;
+        case 'gpoStatic':
+            return open + P + '  <Type>GPO</Type>\n' + P + '  <Line>' + xmlEscape(ir.line) + '</Line>\n' +
+                   P + '  <Value>' + (ir.level === 'On' ? '1' : '0') + '</Value>\n' + close;
+        case 'sendText':
+            return open + P + '  <Type>DeviceRawSendMessage</Type>\n' +
+                   P + '  <DeviceName>' + xmlEscape(ir.device || 'DEVICE') + '</DeviceName>\n' +
+                   P + '  <MessageType>text</MessageType>\n' +
+                   P + '  <Message>' + xmlEscape(encodeDoremiText(ir.text)) + '</Message>\n' + close;
+        default: {
+            var what = ir.kind === 'unknown' ? ir.label : (ACTION_KINDS[ir.kind] ? ACTION_KINDS[ir.kind].label : ir.kind);
+            warn('azione senza equivalente Doremi, ignorata: "' + what + '"');
+            return P + '<!-- IGNORATO: ' + xmlEscape(what) + ' -->\n';
+        }
+    }
+}
+
+function irToAlkemy(ir, warn) {
+    var P = '        ';
+    var delay = ' DelayInMilliseconds="' + (ir.delayMs || 0) + '"';
+
+    switch (ir.kind) {
+        case 'play':
+            return P + '<Action Target="PLAYER" Name="Play"' + delay + '/>\n';
+        case 'stop':
+            return P + '<Action Target="PLAYER" Name="Stop"' + delay + '/>\n';
+        case 'resume':
+            return P + '<Action Target="PLAYER" Name="Resume"' + delay + '/>\n';
+        case 'pause':
+            return P + '<Action Target="PLAYER" Name="Pause"' + delay + '><Parameter Name="Duration in Minutes" Value="' +
+                   xmlEscape(ir.durationMin || 0) + '"/></Action>\n';
+        case 'lamp':
+            return P + '<Action Target="PROJECTOR" Name="' + (ir.on ? 'Turn Lamp On' : 'Turn Lamp Off') + '"' + delay + '/>\n';
+        case 'dowser':
+            return P + '<Action Target="PROJECTOR" Name="' + (ir.closed ? 'Close Dowser' : 'Open Dowser') + '"' + delay + '/>\n';
+        case 'projMacro':
+            return P + '<Action Target="PROJECTOR" Name="Execute Macro"' + delay + '><Parameter Value="' +
+                   xmlEscape(ir.macro) + '"/></Action>\n';
+        case 'gpoPulse':
+            return P + '<Action Target="GPIO" Name="' + (ir.down ? 'Pulse Down' : 'Pulse Up') + '"' + delay +
+                   '><Parameter Name="Output" Value="' + xmlEscape(ir.line) + '"/>' +
+                   '<Parameter Name="Duration in Milliseconds" Value="' + xmlEscape(ir.pulseMs) + '"/></Action>\n';
+        case 'sendText':
+            return P + '<Action Target="' + xmlEscape(ir.device || 'DEVICE') + '" Name="Send Text"' + delay +
+                   '><Parameter Name="Text" Value="' + xmlEscape(encodeBarcoText(ir.text)) + '"/></Action>\n';
+        case 'gpoStatic':
+            warn('GPO ' + ir.line + ' a livello fisso (' + ir.level + ') ignorato: le azioni GPIO dell’ICMP sono solo a impulso');
+            return P + '<!-- IGNORATO: GPO ' + xmlEscape(ir.line) + ' = ' + xmlEscape(ir.level) + ' (livello fisso) -->\n';
+        default: {
+            var what = ir.kind === 'unknown' ? ir.label : (ACTION_KINDS[ir.kind] ? ACTION_KINDS[ir.kind].label : ir.kind);
+            warn('comando senza equivalente Alkemy, ignorato: "' + what + '"');
+            return P + '<!-- IGNORATO: ' + xmlEscape(what) + ' -->\n';
+        }
+    }
+}
+
+/* ================================================================
+   ESTRAZIONE MACRO DAL FILE
+   ================================================================ */
+
+function extractDoremiMacros(doc) {
+    return Array.prototype.map.call(doc.querySelectorAll('AutomationCueMacro'), function (el, index) {
+        var actions = Array.prototype.map.call(el.querySelectorAll('Command'), parseDoremiCommand);
+        return buildMacro(index, childText(el, 'Name') || 'Macro_' + (index + 1), actions, 'alkemy');
+    });
+}
+
+function extractAlkemyMacros(events) {
+    return events.map(function (el, index) {
+        var actions = Array.prototype.map.call(el.querySelectorAll('Action'), parseAlkemyAction);
+        return buildMacro(index, el.getAttribute('Name') || 'Cue_' + (index + 1), actions, 'doremi');
+    });
+}
+
+function buildMacro(index, name, actions, targetFormat) {
+    var unsupported = actions.filter(function (a) { return !isSupported(a, targetFormat); }).length;
+    return {
+        index: index,
+        name: name,
+        actions: actions,
+        details: actions.map(describe),
+        unsupported: unsupported
+    };
+}
+
+/* ================================================================
+   CONVERSIONE COMPLETA
+   ================================================================ */
+
+function convertToAlkemy(macros) {
+    var warnings = [], converted = 0, skipped = 0;
+    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
+
+    macros.forEach(function (macro) {
+        xml += '      <Event Source="USER_CUE" Name="' + xmlEscape(macro.name) + '">\n';
+        macro.actions.forEach(function (ir) {
+            var before = warnings.length;
+            xml += irToAlkemy(ir, function (msg) { warnings.push({ macro: macro.name, text: msg }); });
+            if (warnings.length > before) skipped++; else converted++;
+        });
+        xml += '      </Event>\n';
+    });
+
+    xml += '    </Events>\n  </Automation>\n</SmsSettings>';
+    return { xml: xml, warnings: warnings, converted: converted, skipped: skipped };
+}
+
+function convertToDoremi(macros) {
+    var warnings = [], converted = 0, skipped = 0;
+    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<AutomationCueMacroList>\n';
+    xml += '  <IssueDate>' + new Date().toISOString() + '</IssueDate>\n';
+    xml += '  <Issuer>Doremi Cinema LLC</Issuer>\n  <Creator>USER_CUE Converter</Creator>\n';
+    xml += '  <AnnotationText>Convertito da formato Barco Alchemy (USER_CUE)</AnnotationText>\n';
+
+    macros.forEach(function (macro) {
+        xml += '  <AutomationCueMacro>\n    <Name>' + xmlEscape(macro.name) + '</Name>\n';
+        xml += '    <Id>urn:uuid:' + uuid() + '</Id>\n    <CommandList>\n';
+        macro.actions.forEach(function (ir) {
+            var before = warnings.length;
+            xml += irToDoremi(ir, function (msg) { warnings.push({ macro: macro.name, text: msg }); });
+            if (warnings.length > before) skipped++; else converted++;
+        });
+        xml += '    </CommandList>\n  </AutomationCueMacro>\n';
+    });
+
+    xml += '</AutomationCueMacroList>';
+    return { xml: xml, warnings: warnings, converted: converted, skipped: skipped };
+}
+
+/* ================================================================
+   INTERFACCIA
+   ================================================================ */
+
+var dropZone  = $('dropZone');
+var fileInput = $('fileInput');
+var statusTimer = null;
+
+function showStatus(message, isError) {
+    var box = $('statusMessage');
+    box.className = isError ? 'status-error' : 'status-success';
+    box.textContent = message;
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { box.textContent = ''; box.className = ''; }, 8000);
+}
+
+function resetResults() {
+    $('selectionSection').style.display = 'none';
+    $('outputSection').style.display = 'none';
+    state.macros = [];
+    state.fileType = '';
+    state.output = '';
+}
+
+function setFile(file) {
+    if (!file) return;
+    if (!/\.xml$/i.test(file.name) && file.type.indexOf('xml') === -1) {
+        showStatus('❌ Formato non supportato: serve un file XML (' + file.name + ')', true);
+        return;
+    }
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    state.sourceName = file.name;
+    $('fileNameDisplay').textContent = '📄 ' + file.name + '  ·  ' + (file.size / 1024).toFixed(1) + ' kB';
+    $('analyzeBtn').disabled = false;
+    resetResults();
+}
+
+dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', function (e) {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file) setFile(file);
+    if (e.dataTransfer.files && e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
 });
-dropZone.addEventListener('click', e => {
+dropZone.addEventListener('click', function (e) {
     if (e.target.tagName !== 'LABEL' && e.target !== fileInput) fileInput.click();
 });
-fileInput.addEventListener('change', function() {
+dropZone.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+});
+fileInput.addEventListener('change', function () {
     if (this.files && this.files.length) setFile(this.files[0]);
 });
 
-function setFile(file) {
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
-    document.getElementById('fileNameDisplay').textContent = '📄 ' + file.name;
-    document.getElementById('analyzeBtn').disabled = false;
-    document.getElementById('selectionSection').style.display = 'none';
-    document.getElementById('outputSection').style.display = 'none';
-    allMacros = []; fileType = '';
-}
-
-// ── Status ───────────────────────────────────────────────────
-function showStatus(message, isError = false) {
-    const statusDiv = document.getElementById('statusMessage');
-    statusDiv.className = isError ? 'status-error' : 'status-success';
-    statusDiv.textContent = message;
-    setTimeout(() => statusDiv.textContent = '', 5000);
-}
-
-// ── Analisi file ─────────────────────────────────────────────
+/* ── Analisi ─────────────────────────────────────────────────── */
 function analyzeFile() {
     if (!fileInput.files || !fileInput.files.length) {
         showStatus('❌ Seleziona prima un file!', true);
         return;
     }
-    const reader = new FileReader();
-    reader.onload = function(e) {
+    var reader = new FileReader();
+    reader.onerror = function () { showStatus('❌ Impossibile leggere il file', true); };
+    reader.onload = function (e) {
         try {
-            const xmlText = e.target.result;
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(xmlText, 'text/xml');
-            if (doc.querySelector('parsererror')) throw new Error('XML non valido o malformato');
+            var doc = new DOMParser().parseFromString(e.target.result, 'text/xml');
+            var err = doc.querySelector('parsererror');
+            if (err) throw new Error('XML non valido o malformato');
 
             if (doc.querySelector('AutomationCueMacro')) {
-                fileType = 'doremi';
-                allMacros = extractDoremiMacros(doc);
-                showStatus(`✅ Doremi: ${allMacros.length} macro trovate`);
-            } else if (doc.querySelectorAll('Event[Source="USER_CUE"]').length) {
-                fileType = 'alkemy';
-                const events = Array.from(doc.querySelectorAll('Event[Source="USER_CUE"]'));
-                allMacros = extractAlkemyMacros(events);
-                showStatus(`✅ Alkemy: ${allMacros.length} USER_CUE trovate`);
+                state.fileType = 'doremi';
+                state.macros = extractDoremiMacros(doc);
+                if (!state.macros.length) throw new Error('File Doremi senza macro');
+                showStatus('✅ Doremi riconosciuto: ' + state.macros.length + ' macro → destinazione Barco Alchemy');
             } else {
-                throw new Error('Nessuna macro trovata (né Doremi né Alkemy)');
+                var userCues = Array.prototype.slice.call(doc.querySelectorAll('Event[Source="USER_CUE"]'));
+                if (userCues.length) {
+                    state.fileType = 'alkemy';
+                    state.macros = extractAlkemyMacros(userCues);
+                    showStatus('✅ Barco Alchemy riconosciuto: ' + state.macros.length + ' USER_CUE → destinazione Doremi');
+                } else {
+                    var others = {};
+                    Array.prototype.forEach.call(doc.querySelectorAll('Event[Source]'), function (ev) {
+                        others[ev.getAttribute('Source')] = true;
+                    });
+                    var found = Object.keys(others);
+                    throw new Error(found.length
+                        ? 'Nessun USER_CUE nel file. Sorgenti trovate: ' + found.join(', ')
+                        : 'Nessuna macro trovata (né Doremi né Alkemy)');
+                }
             }
 
+            checkDuplicateNames();
             displayMacros();
-            document.getElementById('selectionSection').style.display = 'block';
+            $('convDirection').textContent = state.fileType === 'doremi'
+                ? 'Doremi → Barco Alchemy' : 'Barco Alchemy → Doremi';
+            $('selectionSection').style.display = 'block';
         } catch (error) {
-            showStatus(`❌ Errore: ${error.message}`, true);
-            console.error('Errore:', error);
+            resetResults();
+            showStatus('❌ Errore: ' + error.message, true);
         }
     };
     reader.readAsText(fileInput.files[0]);
 }
 
-// ── Estrazione macro ─────────────────────────────────────────
-function extractDoremiMacros(doc) {
-    return Array.from(doc.querySelectorAll('AutomationCueMacro')).map((element, index) => {
-        const name = element.querySelector('Name')?.textContent.trim() || `Macro_${index + 1}`;
-        const commands = element.querySelectorAll('Command');
-        const commandDetails = [];
-        commands.forEach(cmd => {
-            const type = cmd.querySelector('Type')?.textContent.trim() || '';
-            const value = cmd.querySelector('Value')?.textContent.trim();
-            const device = cmd.querySelector('DeviceName')?.textContent.trim();
-            let detail = type;
-            if (value) detail += ' = ' + value;
-            if (device) detail += ' (' + device + ')';
-            if (detail) commandDetails.push(detail);
-        });
-        return { index, name, commandCount: commands.length, commandDetails, element };
+function checkDuplicateNames() {
+    var seen = {}, dups = [];
+    state.macros.forEach(function (m) {
+        var key = m.name.toLowerCase();
+        if (seen[key]) { if (dups.indexOf(m.name) === -1) dups.push(m.name); }
+        seen[key] = true;
     });
+    if (dups.length) {
+        showStatus('⚠️ Nomi cue duplicati nel file: ' + dups.join(', ') + ' — il server di destinazione potrebbe rifiutarli', true);
+    }
 }
 
-function extractAlkemyMacros(events) {
-    return events.map((element, index) => {
-        const name = element.getAttribute('Name') || `Cue_${index + 1}`;
-        const actions = element.querySelectorAll('Action');
-        const actionDetails = [];
-        actions.forEach(action => {
-            actionDetails.push(`${action.getAttribute('Target')}: ${action.getAttribute('Name')}`);
-        });
-        return { index, name, commandCount: actions.length, commandDetails: actionDetails, element };
-    });
-}
-
-// ── Display macro ────────────────────────────────────────────
+/* ── Lista macro ─────────────────────────────────────────────── */
 function displayMacros() {
-    const macroList = document.getElementById('macroList');
-    macroList.innerHTML = '';
-    document.getElementById('totalCount').textContent = allMacros.length;
-    document.getElementById('selectedCount').textContent = '0';
+    var list = $('macroList');
+    list.innerHTML = '';
+    $('totalCount').textContent = state.macros.length;
+    $('selectedCount').textContent = '0';
 
-    allMacros.forEach((macro, index) => {
-        const item = document.createElement('div');
+    state.macros.forEach(function (macro, index) {
+        var item = document.createElement('div');
         item.className = 'macro-item';
         item.dataset.index = index;
 
-        const checkbox = document.createElement('input');
+        var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'macro-checkbox';
-        checkbox.id = `macro-${index}`;
-        checkbox.onchange = updateSelection;
+        checkbox.id = 'macro-' + index;
+        checkbox.addEventListener('change', updateSelection);
 
-        const infoDiv = document.createElement('div');
-        infoDiv.style.flex = '1';
+        var info = document.createElement('div');
+        info.style.flex = '1';
+        info.style.minWidth = '0';
 
-        const nameDiv = document.createElement('div');
+        var nameDiv = document.createElement('div');
         nameDiv.className = 'macro-name';
-        nameDiv.textContent = macro.name;
+        nameDiv.appendChild(document.createTextNode(macro.name));
 
-        const countSpan = document.createElement('span');
-        countSpan.className = 'command-count';
-        countSpan.textContent = `${macro.commandCount} comandi`;
-        nameDiv.appendChild(countSpan);
+        var count = document.createElement('span');
+        count.className = 'command-count';
+        count.textContent = macro.actions.length + (macro.actions.length === 1 ? ' comando' : ' comandi');
+        nameDiv.appendChild(count);
 
-        infoDiv.appendChild(nameDiv);
-        if (macro.commandDetails.length > 0) {
-            const detailsDiv = document.createElement('div');
-            detailsDiv.className = 'macro-details';
-            detailsDiv.textContent = macro.commandDetails.join(' | ');
-            infoDiv.appendChild(detailsDiv);
+        var badge = document.createElement('span');
+        if (macro.unsupported) {
+            badge.className = 'badge badge-warn';
+            badge.textContent = macro.unsupported + ' non convertibil' + (macro.unsupported === 1 ? 'e' : 'i');
+        } else {
+            badge.className = 'badge badge-ok';
+            badge.textContent = 'convertibile';
+        }
+        nameDiv.appendChild(badge);
+        info.appendChild(nameDiv);
+
+        if (macro.details.length) {
+            var details = document.createElement('div');
+            details.className = 'macro-details';
+            details.textContent = macro.details.join(' | ');
+            info.appendChild(details);
         }
 
         item.appendChild(checkbox);
-        item.appendChild(infoDiv);
-        item.onclick = function(e) {
+        item.appendChild(info);
+        item.addEventListener('click', function (e) {
             if (e.target !== checkbox) { checkbox.checked = !checkbox.checked; updateSelection(); }
-        };
-
-        macroList.appendChild(item);
+        });
+        list.appendChild(item);
     });
+}
+
+function eachCheckbox(fn) {
+    Array.prototype.forEach.call(document.querySelectorAll('.macro-checkbox'), fn);
 }
 
 function updateSelection() {
-    let selectedCount = 0;
-    document.querySelectorAll('.macro-checkbox').forEach(checkbox => {
-        const item = checkbox.closest('.macro-item');
-        if (checkbox.checked) { selectedCount++; item.classList.add('selected'); }
+    var selected = 0;
+    eachCheckbox(function (cb) {
+        var item = cb.closest('.macro-item');
+        if (cb.checked) { selected++; item.classList.add('selected'); }
         else { item.classList.remove('selected'); }
     });
-    document.getElementById('selectedCount').textContent = selectedCount;
-    document.getElementById('convertBtn').disabled = selectedCount === 0;
+    $('selectedCount').textContent = selected;
+    $('convertBtn').disabled = selected === 0;
 }
 
-function selectAll() {
-    document.querySelectorAll('.macro-checkbox').forEach(cb => {
-        if (cb.closest('.macro-item').style.display !== 'none') cb.checked = true;
-    });
-    updateSelection();
-}
-
-function deselectAll() {
-    document.querySelectorAll('.macro-checkbox').forEach(cb => {
-        if (cb.closest('.macro-item').style.display !== 'none') cb.checked = false;
+function setAllVisible(checked) {
+    eachCheckbox(function (cb) {
+        if (cb.closest('.macro-item').style.display !== 'none') cb.checked = checked;
     });
     updateSelection();
 }
 
 function filterMacros() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    document.querySelectorAll('.macro-item').forEach(item => {
-        const name = item.textContent.toLowerCase();
-        item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+    var term = $('searchInput').value.toLowerCase();
+    Array.prototype.forEach.call(document.querySelectorAll('.macro-item'), function (item) {
+        item.style.display = item.textContent.toLowerCase().indexOf(term) !== -1 ? 'flex' : 'none';
     });
 }
 
-// ── Conversione ───────────────────────────────────────────────
+/* ── Conversione ─────────────────────────────────────────────── */
 function convertSelected() {
-    const selectedIndices = Array.from(document.querySelectorAll('.macro-checkbox:checked'))
-        .map(cb => parseInt(cb.closest('.macro-item').dataset.index));
-
-    if (!selectedIndices.length) {
-        showStatus('❌ Seleziona almeno una macro!', true);
-        return;
-    }
-
-    const selectedMacros = selectedIndices.map(i => allMacros[i]);
+    var selected = [];
+    eachCheckbox(function (cb) {
+        if (cb.checked) selected.push(state.macros[parseInt(cb.closest('.macro-item').dataset.index, 10)]);
+    });
+    if (!selected.length) { showStatus('❌ Seleziona almeno una macro!', true); return; }
 
     try {
-        let result;
-        if (fileType === 'doremi') {
-            result = convertDoremiToAlkemy(selectedMacros);
-            fileName = 'ICMPSettings_converted.xml';
+        var result, base = state.sourceName.replace(/\.xml$/i, '') || 'export';
+        if (state.fileType === 'doremi') {
+            result = convertToAlkemy(selected);
+            state.outputName = base + '_alkemy.xml';
         } else {
-            result = convertAlkemyToDoremi(selectedMacros);
-            fileName = 'macros_converted.xml';
+            result = convertToDoremi(selected);
+            state.outputName = base + '_doremi.xml';
         }
 
-        convertedContent = result.xml;
-        document.getElementById('outputBox').textContent = convertedContent;
-        document.getElementById('outputSection').style.display = 'block';
-
-        const warningsBox  = document.getElementById('warningsBox');
-        const warningsList = document.getElementById('warningsList');
-        if (result.warnings.length > 0) {
-            warningsList.innerHTML = result.warnings.map(w => `<li>${w}</li>`).join('');
-            warningsBox.style.display = 'block';
-            showStatus(`⚠️ Conversione con ${result.warnings.length} avviso/i — controlla la sezione gialla`, true);
-        } else {
-            warningsBox.style.display = 'none';
-            showStatus(`✅ Conversione completata! ${selectedIndices.length} macro`);
+        // controllo di sicurezza: l'XML prodotto deve essere ben formato
+        var check = new DOMParser().parseFromString(result.xml, 'text/xml');
+        if (check.querySelector('parsererror')) {
+            throw new Error('XML generato non valido — segnala il file di partenza');
         }
 
-        document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+        state.output = result.xml;
+        $('outputBox').textContent = result.xml;
+        $('outputSection').style.display = 'block';
+        renderSummary(selected.length, result);
+        renderWarnings(result.warnings);
+
+        if (result.warnings.length) {
+            showStatus('⚠️ Conversione completata con ' + result.warnings.length + ' avviso/i — controlla il riquadro arancione', true);
+        } else {
+            showStatus('✅ Conversione completata: ' + selected.length + ' cue, ' + result.converted + ' azioni');
+        }
+        $('outputSection').scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
-        showStatus(`❌ Errore: ${error.message}`, true);
+        showStatus('❌ Errore: ' + error.message, true);
     }
 }
 
-function escapeXml(text) {
-    if (!text) return '';
-    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
-
-function convertDoremiToAlkemy(selectedMacros) {
-    const warnings = [];
-    let xml = '<?xml version="1.0"?>\n<SmsSettings version="1.1">\n  <Automation>\n    <Events>\n';
-
-    selectedMacros.forEach(macro => {
-        xml += `      <Event Source="USER_CUE" Name="${escapeXml(macro.name)}">\n`;
-
-        macro.element.querySelectorAll('Command').forEach(cmd => {
-            const type   = cmd.querySelector('Type')?.textContent.trim();
-            const value  = cmd.querySelector('Value')?.textContent.trim();
-            const device = cmd.querySelector('DeviceName')?.textContent.trim();
-            const line   = cmd.querySelector('Line')?.textContent.trim() || '0';
-            const pulse  = cmd.querySelector('PulseDelay')?.textContent.trim() || '1000';
-            const msg    = cmd.querySelector('Message')?.textContent || '';
-
-            if (type === 'Play')
-                xml += `        <Action Target="PLAYER" Name="Play" DelayInMilliseconds="0"/>\n`;
-            else if (type === 'Stop')
-                xml += `        <Action Target="PLAYER" Name="Stop" DelayInMilliseconds="0"/>\n`;
-            else if (type === 'Pause')
-                xml += `        <Action Target="PLAYER" Name="Pause" DelayInMilliseconds="0"><Parameter Name="Duration in Minutes" Value="0"/></Action>\n`;
-            else if (type === 'Lamp')
-                xml += `        <Action Target="PROJECTOR" Name="${value === 'On' ? 'Turn Lamp On' : 'Turn Lamp Off'}" DelayInMilliseconds="0"/>\n`;
-            else if (type === 'Dowser')
-                xml += `        <Action Target="PROJECTOR" Name="${value === 'On' ? 'Close Dowser' : 'Open Dowser'}" DelayInMilliseconds="0"/>\n`;
-            else if (type === 'ProjectorMacro')
-                xml += `        <Action Target="PROJECTOR" Name="Execute Macro" DelayInMilliseconds="0"><Parameter Value="${escapeXml(value||'')}"/></Action>\n`;
-            else if (type === 'GPO')
-                xml += `        <Action Target="GPIO" Name="Pulse Up" DelayInMilliseconds="0"><Parameter Name="Output" Value="${line}"/><Parameter Name="Duration in Milliseconds" Value="${pulse}"/></Action>\n`;
-            else if (type === 'DeviceRawSendMessage' && device)
-                xml += `        <Action Target="${escapeXml(device)}" Name="Send Text" DelayInMilliseconds="0"><Parameter Name="Text" Value="${escapeXml(msg.replace(/\\r\\n/g, '\\0D\\0A '))}"/></Action>\n`;
-            else if (type) {
-                xml += `        <!-- IGNORATO: tipo "${escapeXml(type)}"${device ? ` su ${escapeXml(device)}` : ''} -->\n`;
-                warnings.push(`[${macro.name}] Tipo non convertibile ignorato: "${type}"${device ? ` (dispositivo: ${device})` : ''}`);
-            }
-        });
-
-        xml += `      </Event>\n`;
+function renderSummary(macroCount, result) {
+    var data = [
+        [macroCount, 'Cue convertite'],
+        [result.converted, 'Azioni convertite'],
+        [result.skipped, 'Azioni ignorate'],
+        [state.fileType === 'doremi' ? 'ALCHEMY' : 'DOREMI', 'Formato di uscita']
+    ];
+    var box = $('summaryBox');
+    box.innerHTML = '';
+    data.forEach(function (row) {
+        var item = document.createElement('div');
+        item.className = 'summary-item';
+        var v = document.createElement('div');
+        v.className = 'summary-value';
+        v.textContent = row[0];
+        var l = document.createElement('div');
+        l.className = 'summary-label';
+        l.textContent = row[1];
+        item.appendChild(v); item.appendChild(l);
+        box.appendChild(item);
     });
-
-    xml += '    </Events>\n  </Automation>\n</SmsSettings>';
-    return { xml, warnings };
 }
 
-function convertAlkemyToDoremi(selectedMacros) {
-    const warnings = [];
-    let xml = '<?xml version="1.0"?>\n<AutomationCueMacroList>\n';
-    xml += '  <IssueDate>' + new Date().toISOString() + '</IssueDate>\n';
-    xml += '  <Issuer>Doremi Cinema LLC</Issuer>\n  <Creator>Convertitore</Creator>\n';
-    xml += '  <AnnotationText>Convertito da formato Alkemy</AnnotationText>\n';
-
-    selectedMacros.forEach(macro => {
-        const event = macro.element;
-        xml += `  <AutomationCueMacro>\n    <Name>${escapeXml(macro.name)}</Name>\n`;
-        xml += `    <Id>urn:uuid:${crypto.randomUUID()}</Id>\n    <CommandList>\n`;
-
-        event.querySelectorAll('Action').forEach(action => {
-            const target     = action.getAttribute('Target');
-            const actionName = action.getAttribute('Name');
-            const params     = action.querySelectorAll('Parameter');
-
-            if (target === 'PLAYER' && (actionName === 'Play' || actionName === 'Start'))
-                xml += '      <Command>\n        <Type>Play</Type>\n      </Command>\n';
-            else if (target === 'PLAYER' && actionName === 'Stop')
-                xml += '      <Command>\n        <Type>Stop</Type>\n      </Command>\n';
-            else if (target === 'PLAYER' && actionName === 'Pause') {
-                const durParam = Array.from(params).find(p => p.getAttribute('Name') === 'Duration in Minutes');
-                const dur = durParam ? parseFloat(durParam.getAttribute('Value') || '0') : 0;
-                xml += '      <Command>\n        <Type>Pause</Type>\n      </Command>\n';
-                if (dur > 0)
-                    warnings.push(`[${macro.name}] Pausa temporizzata (${dur} min con ripresa automatica) → convertita in Pausa semplice (Doremi non supporta auto-ripresa)`);
-            }
-            else if (target === 'PLAYER' && actionName === 'Resume') {
-                xml += `      <!-- IGNORATO: PLAYER/Resume non ha equivalente Doremi -->\n`;
-                warnings.push(`[${macro.name}] "Resume" (PLAYER) non ha un equivalente in Doremi — azione ignorata`);
-            }
-            else if (target === 'PROJECTOR' && actionName === 'Turn Lamp On')
-                xml += '      <Command>\n        <Type>Lamp</Type>\n        <Value>On</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
-            else if (target === 'PROJECTOR' && actionName === 'Turn Lamp Off')
-                xml += '      <Command>\n        <Type>Lamp</Type>\n        <Value>Off</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
-            else if (target === 'PROJECTOR' && actionName === 'Close Dowser')
-                xml += '      <Command>\n        <Type>Dowser</Type>\n        <Value>On</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
-            else if (target === 'PROJECTOR' && actionName === 'Open Dowser')
-                xml += '      <Command>\n        <Type>Dowser</Type>\n        <Value>Off</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n';
-            else if (target === 'PROJECTOR' && actionName === 'Execute Macro') {
-                const macroVal = Array.from(params).find(p => p.hasAttribute('Value'))?.getAttribute('Value') || '';
-                xml += `      <Command>\n        <Type>ProjectorMacro</Type>\n        <Value>${escapeXml(macroVal)}</Value>\n        <DeviceName>DLP Projector</DeviceName>\n      </Command>\n`;
-            }
-            else if (target === 'GPIO' && actionName === 'Pulse Up') {
-                let line = '0', dur = '1000';
-                params.forEach(p => {
-                    if (p.getAttribute('Name') === 'Output') line = p.getAttribute('Value');
-                    if (p.getAttribute('Name') === 'Duration in Milliseconds') dur = p.getAttribute('Value');
-                });
-                xml += `      <Command>\n        <Type>GPO</Type>\n        <Line>${line}</Line>\n        <Value>2</Value>\n        <PulseDelay>${dur}</PulseDelay>\n      </Command>\n`;
-            }
-            else if (actionName === 'Send Text') {
-                // Gestione generica dispositivi TCP (CP650, CP750, CP850, QSC, ecc.)
-                let txt = '';
-                params.forEach(p => { if (p.getAttribute('Name') === 'Text') txt = p.getAttribute('Value'); });
-                txt = txt.replace(/\\0D\\0A/g, '\\r\\n').trim();
-                xml += `      <Command>\n        <Type>DeviceRawSendMessage</Type>\n        <DeviceName>${escapeXml(target)}</DeviceName>\n        <MessageType>text</MessageType>\n        <Message>${escapeXml(txt)}</Message>\n      </Command>\n`;
-            }
-            else if (target && actionName) {
-                xml += `      <!-- IGNORATO: ${escapeXml(target)}/${escapeXml(actionName)} -->\n`;
-                warnings.push(`[${macro.name}] Azione non convertibile ignorata: "${target}/${actionName}"`);
-            }
-        });
-
-        xml += '    </CommandList>\n  </AutomationCueMacro>\n';
+function renderWarnings(warnings) {
+    var box = $('warningsBox'), list = $('warningsList');
+    list.innerHTML = '';
+    if (!warnings.length) { box.style.display = 'none'; return; }
+    warnings.forEach(function (w) {
+        var li = document.createElement('li');
+        var strong = document.createElement('strong');
+        strong.textContent = '[' + w.macro + '] ';
+        li.appendChild(strong);
+        li.appendChild(document.createTextNode(w.text));   // testo dal file: mai innerHTML
+        list.appendChild(li);
     });
-
-    xml += '</AutomationCueMacroList>';
-    return { xml, warnings };
+    box.style.display = 'block';
 }
 
-// ── Download & copia ─────────────────────────────────────────
+/* ── Download / copia ────────────────────────────────────────── */
 function downloadFile() {
-    if (!convertedContent) { showStatus('❌ Nessun contenuto!', true); return; }
-    const blob = new Blob([convertedContent], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = fileName;
-    document.body.appendChild(a); a.click();
+    if (!state.output) { showStatus('❌ Nessun contenuto!', true); return; }
+    var blob = new Blob([state.output], { type: 'application/xml' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = state.outputName;
+    document.body.appendChild(a);
+    a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showStatus('✅ File scaricato!');
+    showStatus('✅ File scaricato: ' + state.outputName);
 }
 
 function copyToClipboard() {
-    if (!convertedContent) { showStatus('❌ Nessun contenuto!', true); return; }
-    navigator.clipboard.writeText(convertedContent)
-        .then(() => showStatus('✅ Copiato negli appunti!'))
-        .catch(() => showStatus('❌ Impossibile copiare', true));
+    if (!state.output) { showStatus('❌ Nessun contenuto!', true); return; }
+    if (!navigator.clipboard) { showStatus('❌ Copia non disponibile su questo browser', true); return; }
+    navigator.clipboard.writeText(state.output)
+        .then(function () { showStatus('✅ Copiato negli appunti!'); })
+        .catch(function () { showStatus('❌ Impossibile copiare', true); });
 }
+
+/* ── Tabella di equivalenza (generata da ACTION_KINDS) ───────── */
+function renderMappingTable() {
+    var body = $('mapTableBody');
+    Object.keys(ACTION_KINDS).forEach(function (key) {
+        var k = ACTION_KINDS[key];
+        var tr = document.createElement('tr');
+        [k.label, k.doremi, k.alkemy, k.note || ''].forEach(function (cell, i) {
+            var td = document.createElement('td');
+            if (cell === null) {
+                td.className = 'map-na';
+                td.textContent = '— nessun equivalente';
+            } else if (i > 0 && i < 3) {
+                var code = document.createElement('code');
+                code.textContent = cell;
+                td.appendChild(code);
+            } else {
+                td.textContent = cell;
+            }
+            tr.appendChild(td);
+        });
+        body.appendChild(tr);
+    });
+}
+
+/* ── Wiring ──────────────────────────────────────────────────── */
+$('analyzeBtn').addEventListener('click', analyzeFile);
+$('convertBtn').addEventListener('click', convertSelected);
+$('selectAllBtn').addEventListener('click', function () { setAllVisible(true); });
+$('deselectAllBtn').addEventListener('click', function () { setAllVisible(false); });
+$('searchInput').addEventListener('input', filterMacros);
+$('downloadBtn').addEventListener('click', downloadFile);
+$('copyBtn').addEventListener('click', copyToClipboard);
+renderMappingTable();
+
+})();
     </script>
 </body>
 </html>
